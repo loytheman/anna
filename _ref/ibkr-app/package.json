@@ -1,0 +1,19 @@
+{
+  "name": "anna-app",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "nodemon src/app-local.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@stoqey/ib": "^1.5.3",
+    "@stoqey/ibkr": "^2.5.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

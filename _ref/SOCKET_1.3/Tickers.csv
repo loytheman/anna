@@ -1,0 +1,4 @@
+Id,symbol,expiry,strike,right,secType,currency,exchange,action,qty,history_start_dt,history_end_dt,status
+1,SBIN,,,,STK,INR,NSE,BUY,150,8/1/2024,10/23/2024,A
+2,AAPL,,,,STK,USD,SMART,BUY,1,8/1/2024,10/24/2024,I
+3,TCS,,,,STK,INR,NSE,SELL,75,8/1/2024,10/25/2024,A

@@ -1,0 +1,9 @@
+{
+  "name": "anna-app",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "This package.json is used to set ES module in AWS lambda.",
+  "loynote": "name & version is read by ./config/config.js",
+  "main": "app-lambda.js",
+  "author": "Loy"
+}
