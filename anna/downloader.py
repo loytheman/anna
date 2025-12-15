@@ -66,7 +66,7 @@ if not app.isConnected():
 
 # c = ContractType.ES2603
 c = ContractType.ES2512
-duration = '3 M'
+duration = '6 M'
 bar_size = "1 hour"
 
 print(f"\nConnected successfully. Requesting historical data for {c.symbol}({c.conId}) ...")
