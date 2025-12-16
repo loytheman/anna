@@ -47,6 +47,7 @@ def load_data(csv_file):
     df = pd.read_csv(csv_file, parse_dates=True)
     df.columns = df.columns.str.lower()
     df.index = pd.DatetimeIndex(df['date'])
+    df['tick_num'] = np.arange(1, len(df) + 1)
     
     required_cols = ['open', 'close', 'high', 'low']
     if not all(col in df.columns for col in required_cols):
@@ -54,6 +55,7 @@ def load_data(csv_file):
     
     
     df['date'] = pd.to_datetime(df['date'])
+    
     # df = df.sort_values('date').reset_index(drop=True)
 
     
@@ -89,7 +91,7 @@ def load_data(csv_file):
 
     df.loc[df['date'].isin(df_gap_up['date']), ['gap_pct', 'is_gap_up']] = df_gap_up[['gap_pct', 'is_gap_up']]
 
-    display(df[df['is_gap_up'] == True])
+    # display(df[df['is_gap_up'] == True])
 
     return df
 
@@ -105,15 +107,55 @@ df = load_data(csv_file)
 
 # print(df[df['is_gap_up'] == True])
 # print(df)
+
+#%%
+def add_text_markers(pts, ax, trades):
+    # for i, (idx, row) in enumerate(pts.iterrows()):
+    # for i, (idx, row) in enumerate(pts.iterrows()):
+    #     print('??>>>', row['entry_price'])
+    #     ax[0].text(i, 
+    #                row['entry_price'] * 0.99, f'${row['entry_price']}', 
+    #                ha='center', va='top', fontsize=8, color='green', weight='bold')
+    # j = pts[pts["date"]== datetime.strptime("2025-11-21 00:00:00", "%Y-%m-%d %H:%M:%S")].index
+    # print("jj", j)
+    # ax[0].text(20, 
+    #                6800, 'kkn', 
+    #                ha='center', va='top', fontsize=8, color='green', weight='bold')
+    trade_num = 1
+    for t in trades:
+        r1 = pts[pts["date"]==t.entry_date]
+        r2 = pts[pts["date"]==t.exit_date]
+        ax[0].text(r1['tick_num'], 
+                   t.entry_price * 0.995, f'[{trade_num}]', 
+                   ha='center', va='top', fontsize=8, color='green', weight='bold')
+        ax[0].text(r2['tick_num'], 
+                   t.exit_price * 0.995, f'[{trade_num}]', 
+                   ha='center', va='top', fontsize=8, color='red', weight='bold')
+        trade_num += 1
+
+    # for t in trades:
+    #     ax[0].text(t.entry_date, pts['low'] * 0.97, f'${pts["close"]:.1f}', 
+    #                   ha='center', va='top', fontsize=8, 
+    #                   color='green', weight='bold')
+    #     ax[0].text(t.exit_date, pts['low'] * 0.97, f'${pts["close"]:.1f}', 
+    #                   ha='center', va='bottom', fontsize=8, 
+    #                   color='red', weight='bold')
+    # display(trades)
+
+
+
+
 # %%
 def drawEntryExitChart (pts, name, trades=[]):
-    print (len(trades))
+    pts['trade'] = None
 
+    i = 1
     for t in trades:
-        pts.loc[pts['date'] == t.entry_date, 'entry_price'] = t.entry_price
-        pts.loc[pts['date'] == t.exit_date, 'exit_price'] = t.exit_price
+        pts.loc[pts['date'] == t.entry_date, ['entry_price', 'trade']] = [t.entry_price, i]
+        pts.loc[pts['date'] == t.exit_date, ['exit_price', 'trade']] = [t.exit_price, i]
         pts.loc[pts['date'] == t.exit_date, 'pnl'] = t.pnl
-        # print(">>", t.entry_date, t.exit_date)
+        i = i+1
+        print(">>t", t.entry_date, t.exit_date)
 
     pts['total_pnl'] = 0.0
     pts['total_pnl_above'] = np.nan
@@ -128,29 +170,27 @@ def drawEntryExitChart (pts, name, trades=[]):
         if (total_pnl < 0):
             col = "total_pnl_below"
         pts.loc[idx, col] = total_pnl
-
-
-
-    # print(df[np.isfinite(df['entry_price']) | np.isfinite(df['exit_price'])])
-    # print(df[np.isfinite(df['exit_price'])])
-    # display(df)
+    
+    # display(pts)
 
     pts['support_line'] = [gap_threshold] * len(pts)
     apd = [
-        mpf.make_addplot(pts['entry_price'], type='scatter', markersize=20, marker='^', color='blue'),
-        mpf.make_addplot(pts['exit_price'], type='scatter', markersize=20, marker='v', color='red'),
+        mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=50,  color='b'),
+        mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=50, color='red'),
         # mpf.make_addplot(pts['close'], type='scatter', markersize=10, marker='v', color='b'),
         # ^v
         mpf.make_addplot(pts['gap_pct'], type='bar', panel=2, color='b', ylabel="Gap %", secondary_y=False),
         mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=2, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
 
-        mpf.make_addplot(pts['pnl'], type='bar', width=0.2, panel=3, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False),
+        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=3, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
         # mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=3, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), linestyle="--", label=f"total pnl", secondary_y=False, alpha=0.1),
         # mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=3, color='purple', linestyle="--", label=f"total pnl", secondary_y=False),
         mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=3, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
-        mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=3, color='r', linestyle="--", label=f"total pnl", secondary_y=False),
+        mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=3, color='r', linestyle="--", secondary_y=False),
     ]
     fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True, title=name)
+
+    add_text_markers(pts, axlist, trades)
 
 # pts = df.copy()
 # drawEntryExitChart(df.copy(), "test")
@@ -168,9 +208,8 @@ class Trade:
         self.strategy_name = strategy_name
         self.exit_reason = None
 
-#%%
-def backtest_strategy(df, strategy_params, initial_capital, position_size, strategy_name):
-    """Backtest a single strategy"""
+#%% """Backtest a single strategy"""
+def backtest_strategy(df, strategy_params, initial_capital, position_size, strategy_name):  
     capital = initial_capital
     trades = []
     active_trade = None
@@ -276,8 +315,9 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
         'final_capital': capital,
         'equity_curve': pd.DataFrame(equity_curve)
     }
-#%%
-# BACKTESTING ALL STRATEGIES
+
+
+#%%  BACKTESTING ALL STRATEGIES
 print("\n" + "="*80)
 print("BACKTESTING ALL STRATEGIES")
 print("="*80)
