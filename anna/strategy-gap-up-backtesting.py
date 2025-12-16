@@ -162,7 +162,10 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     ]
 
     
-    subtitle1 = subtitle2 = ""
+    subtitle1 = subtitle2 = subtitle3 = ""
+    subtitle3 += f"Inital Capital: ${initial_capital:,.2f}\n"
+    subtitle3 += f"Position Size: {position_size}%\n"
+    subtitle3 += f"Gap Threshold: {gap_threshold}%\n"
     subtitle1 += f"Hold Day(s): {params['hold_days']}\n"
     subtitle1 += f"Stop Loss: {params['stop_loss']}%\n"
     subtitle1 += f"Take Profit: {params['take_profit']}%\n"
@@ -183,9 +186,9 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         subtitle1 += f"Total Trades: {len(trades)}\n"
         subtitle1 += f"Winning Trades: {len(winning_trades)}\n"
         subtitle1 += f"Losing Trades: {len(losing_trades)}\n"
-        subtitle2 += f"Win Rate: {win_rate:.2f}%\n"
         subtitle2 += f"Total Return: {total_return:.2f}%\n"
         subtitle2 += f"Final Capital: ${result['final_capital']:,.2f}\n"
+        subtitle2 += f"Win Rate: {win_rate:.2f}%\n"
         subtitle2 += f"Avg Win: ${avg_win:.2f}\n"
         subtitle2 += f"Avg Loss: ${avg_loss:.2f}\n"
         if avg_loss != 0:
@@ -197,9 +200,10 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
-    axlist[0].set_title(f'{stgy_name.upper().replace('_', ' ')}', loc='left', fontsize=20)
-    axlist[0].set_title(subtitle1, loc='center', ha='right', fontsize=8)
-    axlist[0].set_title(subtitle2, loc='right', fontsize=8)
+    fig.text(0.1,1.1,f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
+    fig.text(0.72,1.1,subtitle3, ha='right', va='top', fontsize=8)
+    fig.text(0.85,1.1,subtitle1, ha='right', va='top', fontsize=8)
+    fig.text(1,1.1,subtitle2, ha='right', va='top', fontsize=8)
      
 
     add_text_markers(pts, axlist, trades)
