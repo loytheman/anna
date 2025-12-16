@@ -117,19 +117,24 @@ def add_text_markers(pts, ax, trades):
 
 # %%
 def drawEntryExitChart (pts, name, trades=[]):
-    pts['trade'] = None
-
+    has_trade = len(trades) > 0
+    
+    pts['trade_num'] = None
     i = 1
     for t in trades:
-        pts.loc[pts['date'] == t.entry_date, ['entry_price', 'trade']] = [t.entry_price, i]
-        pts.loc[pts['date'] == t.exit_date, ['exit_price', 'trade']] = [t.exit_price, i]
+        pts.loc[pts['date'] == t.entry_date, ['', 'trade_num']] = [t.entry_price, i]
+        pts.loc[pts['date'] == t.exit_date, ['', 'trade_num']] = [t.exit_price, i]
         pts.loc[pts['date'] == t.exit_date, 'pnl'] = t.pnl
         i = i+1
         print(">>t", t.entry_date, t.exit_date)
 
-    pts['total_pnl'] = 0.0
+    pts['pnl'] = np.nan
+    pts['total_pnl'] = np.nan
     pts['total_pnl_above'] = np.nan
     pts['total_pnl_below'] = np.nan
+    pts['entry_price'] = np.nan
+    pts['exit_price'] = np.nan
+    
     total_pnl = 0.0
     for idx, row in pts.iterrows():
         if (np.isfinite(row['pnl'])):
@@ -142,53 +147,57 @@ def drawEntryExitChart (pts, name, trades=[]):
         pts.loc[idx, col] = total_pnl
     
     # display(pts)
-
     pts['support_line'] = [gap_threshold] * len(pts)
     apd = [
-        mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=50,  color='b'),
-        mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=50, color='red'),
+        # mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=50,  color='b'),
+        # mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=50, color='red'),
         # mpf.make_addplot(pts['close'], type='scatter', markersize=10, marker='v', color='b'),
         # ^v
-        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=2, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
-        mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=2, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
-        mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=2, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
+        # mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=2, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
+        # mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=2, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
+        # mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=2, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
         # mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=2, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
         # mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=2, color='r', linestyle="--", secondary_y=False),
 
-        mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=3, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
-        mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=3, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
+        # mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=3, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
+        # mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=3, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
     ]
 
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True)
+    # if has_trade:
+    #     apd.extend([
+    #         mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=50,  color='b'),
+    #         mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=50, color='red'),
+    #     ])
 
-    winning_trades = [t for t in trades if t.pnl > 0]
-    losing_trades = [t for t in trades if t.pnl <= 0]
 
-    total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
-    win_rate = (len(winning_trades) / len(trades)) * 100
-    avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
-    avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
+    date_range = df.iloc[0, 0].strftime("%d/%m/%Y") + ' - ' + df.iloc[-1, 0].strftime("%d/%m/%Y")
+    
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True, xlabel=date_range)
 
-    subtitle1 = subtitle2 = ""
-    subtitle1 += f"\nTotal Trades: {len(trades)}"
-    subtitle1 += f"\nWinning Trades: {len(winning_trades)}"
-    subtitle1 += f"\nLosing Trades: {len(losing_trades)}"
-    subtitle2 += f"\nWin Rate: {win_rate:.2f}%"
-    subtitle2 += f"\nTotal Return: {total_return:.2f}%"
-    subtitle2 += f"\nFinal Capital: ${result['final_capital']:,.2f}"
-    subtitle2 += f"\nAvg Win: ${avg_win:.2f}"
-    subtitle2 += f"\nAvg Loss: ${avg_loss:.2f}"
-    if avg_loss != 0:
-        subtitle2 += f"\nProfit Factor: {abs(avg_win/avg_loss):.2f}"
-    else:
-        subtitle2 += f"\n{strategy_name}: No trades executed"
+    # if has_trade:
+    #     winning_trades = [t for t in trades if t.pnl > 0]
+    #     losing_trades = [t for t in trades if t.pnl <= 0]
 
-    axlist[0].set_title(f'{name.upper().replace('_', ' ')}', loc='left', fontsize=20)
-    axlist[0].set_title(subtitle1, loc='center', fontsize=8)
-    axlist[0].set_title(subtitle2, loc='right', fontsize=8)
-   
+    #     # total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
+    #     try:
+    #         win_rate = (len(winning_trades) / len(trades)) * 100
+    #     except:
+    #         win_rate = 0
 
-    add_text_markers(pts, axlist, trades)
+    #     subtitle1 = subtitle2 = ""
+    #     subtitle1 += f"\nTotal Trades: {len(trades)}"
+    #     subtitle1 += f"\nWinning Trades: {len(winning_trades)}"
+    #     subtitle1 += f"\nLosing Trades: {len(losing_trades)}"
+    #     subtitle2 += f"\nWin Rate: {win_rate:.2f}%"
+    #     # subtitle2 += f"\nTotal Return: {total_return:.2f}%"
+    #     # subtitle2 += f"\nFinal Capital: ${result['final_capital']:,.2f}"
+    #     fig.text(0.2,1,f'{name.upper().replace('_', ' ')}', ha='left')
+    #     fig.text(0.75,1, subtitle1, ha='right', va='top', in_layout=False)
+    #     fig.text(0.9,1, subtitle2, ha='right', va='top', in_layout=False)
+    #     add_text_markers(pts, axlist, trades)
+    # else: 
+    #     fig.text(0.9,1, 'No trades executed', ha='right', va='top', in_layout=False)
+    
 
 # pts = df.copy()
 # drawEntryExitChart(df.copy(), "test")
