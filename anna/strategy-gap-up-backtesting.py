@@ -119,9 +119,6 @@ def add_text_markers(pts, ax, trades):
 def drawEntryExitChart (pts, name, trades=[]):
     pts['trade'] = None
 
-    wins = len([t for t in trades if t.pnl > 0])
-    win_rate = (wins / len(trades)) * 100
-
     i = 1
     for t in trades:
         pts.loc[pts['date'] == t.entry_date, ['entry_price', 'trade']] = [t.entry_price, i]
@@ -164,8 +161,31 @@ def drawEntryExitChart (pts, name, trades=[]):
 
     fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True)
 
-    axlist[0].set_title(f'{name}', loc='left', fontsize=20)
-    axlist[0].set_title(f'Win Rate: {win_rate}%\nTotal Trades: {len(trades)}\nTotal Profit: ${total_pnl}', loc='right')
+    winning_trades = [t for t in trades if t.pnl > 0]
+    losing_trades = [t for t in trades if t.pnl <= 0]
+
+    total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
+    win_rate = (len(winning_trades) / len(trades)) * 100
+    avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
+    avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
+
+    subtitle1 = subtitle2 = ""
+    subtitle1 += f"\nTotal Trades: {len(trades)}"
+    subtitle1 += f"\nWinning Trades: {len(winning_trades)}"
+    subtitle1 += f"\nLosing Trades: {len(losing_trades)}"
+    subtitle2 += f"\nWin Rate: {win_rate:.2f}%"
+    subtitle2 += f"\nTotal Return: {total_return:.2f}%"
+    subtitle2 += f"\nFinal Capital: ${result['final_capital']:,.2f}"
+    subtitle2 += f"\nAvg Win: ${avg_win:.2f}"
+    subtitle2 += f"\nAvg Loss: ${avg_loss:.2f}"
+    if avg_loss != 0:
+        subtitle2 += f"\nProfit Factor: {abs(avg_win/avg_loss):.2f}"
+    else:
+        subtitle2 += f"\n{strategy_name}: No trades executed"
+
+    axlist[0].set_title(f'{name.upper().replace('_', ' ')}', loc='left', fontsize=20)
+    axlist[0].set_title(subtitle1, loc='center', fontsize=8)
+    axlist[0].set_title(subtitle2, loc='right', fontsize=8)
    
 
     add_text_markers(pts, axlist, trades)
@@ -338,7 +358,7 @@ for strategy_name, params in strategies.items():
         print(f"\n{strategy_name}: No trades executed")
 
 
-drawEntryExitChart(df, strategy_name, trades)
+    drawEntryExitChart(df, strategy_name, trades)
 
 # %%
 best_strategy = max(results.items(), key=lambda x: x[1]['final_capital'])
