@@ -125,7 +125,6 @@ def drawEntryExitChart (pts, name, trades=[]):
         pts.loc[pts['date'] == t.exit_date, ['exit_price', 'trade']] = [t.exit_price, i]
         pts.loc[pts['date'] == t.exit_date, 'pnl'] = t.pnl
         i = i+1
-        print(">>t", t.entry_date, t.exit_date)
 
     pts['total_pnl'] = 0.0
     pts['total_pnl_above'] = np.nan
@@ -309,9 +308,9 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
         capital += active_trade.shares * active_trade.entry_price + active_trade.pnl
         trades.append(active_trade)
 
-    print("------------- trade --------------")
-    for t in trades:
-        print(t.entry_date, t.exit_date)
+    # print("------------- trade --------------")
+    # for t in trades:
+    #     print(t.entry_date, t.exit_date)
     
     
     return {
@@ -331,32 +330,7 @@ for strategy_name, params in strategies.items():
     result = backtest_strategy(df, params, initial_capital, position_size, strategy_name)
     results[strategy_name] = result
     
-    # Calculate metrics
     trades = result['trades']
-    if len(trades) > 0:
-        winning_trades = [t for t in trades if t.pnl > 0]
-        losing_trades = [t for t in trades if t.pnl <= 0]
-        
-        total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
-        win_rate = (len(winning_trades) / len(trades)) * 100
-        avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
-        avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
-        
-        print(f"\n{strategy_name.upper().replace('_', ' ')}")
-        print("-" * 40)
-        print(f"Total Trades: {len(trades)}")
-        print(f"Winning Trades: {len(winning_trades)}")
-        print(f"Losing Trades: {len(losing_trades)}")
-        print(f"Win Rate: {win_rate:.2f}%")
-        print(f"Total Return: {total_return:.2f}%")
-        print(f"Final Capital: ${result['final_capital']:,.2f}")
-        print(f"Avg Win: ${avg_win:.2f}")
-        print(f"Avg Loss: ${avg_loss:.2f}")
-        if avg_loss != 0:
-            print(f"Profit Factor: {abs(avg_win/avg_loss):.2f}")
-    else:
-        print(f"\n{strategy_name}: No trades executed")
-
 
     drawEntryExitChart(df, strategy_name, trades)
 
