@@ -18,9 +18,9 @@ pd.set_option('display.max_columns', None)
 
 # %%
 strategies = {
-    # 'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
-    # 'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
+    'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
+    'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
+    'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
     'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
     # 'hold_10_days': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 3},
     # 'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
@@ -162,13 +162,13 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     ]
 
     
-    subtitle1 = subtitle2 = subtitle3 = ""
+    summary = subtitle1 = subtitle2 = subtitle3 = ""
     subtitle3 += f"Inital Capital: ${initial_capital:,.2f}\n"
     subtitle3 += f"Position Size: {position_size}%\n"
     subtitle3 += f"Gap Threshold: {gap_threshold}%\n"
-    subtitle1 += f"Hold Day(s): {params['hold_days']}\n"
-    subtitle1 += f"Stop Loss: {params['stop_loss']}%\n"
-    subtitle1 += f"Take Profit: {params['take_profit']}%\n"
+    subtitle2 += f"Hold Day(s): {params['hold_days']}\n"
+    subtitle2 += f"Stop Loss: {params['stop_loss']}%\n"
+    subtitle2 += f"Take Profit: {params['take_profit']}%\n"
     if has_trade:
         apd.extend([
             mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=20, color='blue'),
@@ -183,27 +183,30 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
         avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
         
-        subtitle1 += f"Total Trades: {len(trades)}\n"
-        subtitle1 += f"Winning Trades: {len(winning_trades)}\n"
-        subtitle1 += f"Losing Trades: {len(losing_trades)}\n"
-        subtitle2 += f"Total Return: {total_return:.2f}%\n"
-        subtitle2 += f"Final Capital: ${result['final_capital']:,.2f}\n"
-        subtitle2 += f"Win Rate: {win_rate:.2f}%\n"
-        subtitle2 += f"Avg Win: ${avg_win:.2f}\n"
-        subtitle2 += f"Avg Loss: ${avg_loss:.2f}\n"
+        summary += f"Total Return: {total_return:.2f}%"
+        subtitle2 += f"Total Trades: {len(trades)}\n"
+        subtitle2 += f"Winning Trades: {len(winning_trades)}\n"
+        subtitle2 += f"Losing Trades: {len(losing_trades)}\n"
+        subtitle1 += f"Total Return: {total_return:.2f}%\n"
+        subtitle1 += f"Final Capital: ${result['final_capital']:,.2f}\n"
+        subtitle1 += f"Win Rate: {win_rate:.2f}%\n"
+        subtitle1 += f"Avg Win: ${avg_win:.2f}\n"
+        subtitle1 += f"Avg Loss: ${avg_loss:.2f}\n"
         if avg_loss != 0:
-            subtitle2 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
+            subtitle1 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
     else:
-        subtitle2 += f"No trades executed\n"
+        summary += f"No trades executed\n"
 
     date_range = "\n" + df.iloc[0, 0].strftime("%d %b %Y") + '  -  ' + df.iloc[-1, 0].strftime("%d %b %Y")
     fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
-    fig.text(0.1,1.1,f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
-    fig.text(0.72,1.1,subtitle3, ha='right', va='top', fontsize=8)
-    fig.text(0.85,1.1,subtitle1, ha='right', va='top', fontsize=8)
-    fig.text(1,1.1,subtitle2, ha='right', va='top', fontsize=8)
+    fig.text(0.1,1.1, f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
+    fig.text(0.1,1.05, summary, ha='left', va='top', fontsize=12, color='g' if total_return >= 0 else 'r')
+    
+    fig.text(0.72,1.1, subtitle3, ha='right', va='top', fontsize=8)
+    fig.text(0.85,1.1, subtitle2, ha='right', va='top', fontsize=8)
+    fig.text(1,1.1, subtitle1, ha='right', va='top', fontsize=8)
      
 
     add_text_markers(pts, axlist, trades)
