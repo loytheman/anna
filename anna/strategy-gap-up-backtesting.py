@@ -82,15 +82,9 @@ def load_data(csv_file):
     df_daily["is_gap_up"] = False
     df_daily['is_gap_up'] = df_daily['gap_pct'] > gap_threshold
 
+    df.loc[df['date'].isin(df_daily['date']), ['gap_pct', 'is_gap_up']] = df_daily[['gap_pct', 'is_gap_up']]
 
-    
-
-    # print(df_daily)
-    df_gap_up = df_daily[df_daily['is_gap_up'] == True]
-    # print(df_gap_up)
-
-    df.loc[df['date'].isin(df_gap_up['date']), ['gap_pct', 'is_gap_up']] = df_gap_up[['gap_pct', 'is_gap_up']]
-
+    # display(df[df['gap_pct'] > 0])
     # display(df[df['is_gap_up'] == True])
 
     return df
@@ -110,44 +104,23 @@ df = load_data(csv_file)
 
 #%%
 def add_text_markers(pts, ax, trades):
-    # for i, (idx, row) in enumerate(pts.iterrows()):
-    # for i, (idx, row) in enumerate(pts.iterrows()):
-    #     print('??>>>', row['entry_price'])
-    #     ax[0].text(i, 
-    #                row['entry_price'] * 0.99, f'${row['entry_price']}', 
-    #                ha='center', va='top', fontsize=8, color='green', weight='bold')
-    # j = pts[pts["date"]== datetime.strptime("2025-11-21 00:00:00", "%Y-%m-%d %H:%M:%S")].index
-    # print("jj", j)
-    # ax[0].text(20, 
-    #                6800, 'kkn', 
-    #                ha='center', va='top', fontsize=8, color='green', weight='bold')
     trade_num = 1
     for t in trades:
         r1 = pts[pts["date"]==t.entry_date]
         r2 = pts[pts["date"]==t.exit_date]
         ax[0].text(r1['tick_num'], 
-                   t.entry_price * 0.995, f'[{trade_num}]', 
-                   ha='center', va='top', fontsize=8, color='green', weight='bold')
+                   t.entry_price * 0.995, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='green', weight='bold')
         ax[0].text(r2['tick_num'], 
-                   t.exit_price * 0.995, f'[{trade_num}]', 
-                   ha='center', va='top', fontsize=8, color='red', weight='bold')
+                   t.exit_price * 0.995, f'[{trade_num}]\n{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='purple', weight='bold')
         trade_num += 1
-
-    # for t in trades:
-    #     ax[0].text(t.entry_date, pts['low'] * 0.97, f'${pts["close"]:.1f}', 
-    #                   ha='center', va='top', fontsize=8, 
-    #                   color='green', weight='bold')
-    #     ax[0].text(t.exit_date, pts['low'] * 0.97, f'${pts["close"]:.1f}', 
-    #                   ha='center', va='bottom', fontsize=8, 
-    #                   color='red', weight='bold')
-    # display(trades)
-
-
-
+    # bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
 
 # %%
 def drawEntryExitChart (pts, name, trades=[]):
     pts['trade'] = None
+
+    wins = len([t for t in trades if t.pnl > 0])
+    win_rate = (wins / len(trades)) * 100
 
     i = 1
     for t in trades:
@@ -179,16 +152,21 @@ def drawEntryExitChart (pts, name, trades=[]):
         mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=50, color='red'),
         # mpf.make_addplot(pts['close'], type='scatter', markersize=10, marker='v', color='b'),
         # ^v
-        mpf.make_addplot(pts['gap_pct'], type='bar', panel=2, color='b', ylabel="Gap %", secondary_y=False),
-        mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=2, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
+        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=2, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
+        mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=2, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
+        mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=2, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
+        # mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=2, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
+        # mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=2, color='r', linestyle="--", secondary_y=False),
 
-        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=3, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
-        # mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=3, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), linestyle="--", label=f"total pnl", secondary_y=False, alpha=0.1),
-        # mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=3, color='purple', linestyle="--", label=f"total pnl", secondary_y=False),
-        mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=3, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
-        mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=3, color='r', linestyle="--", secondary_y=False),
+        mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=3, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
+        mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=3, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
     ]
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True, title=name)
+
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True)
+
+    axlist[0].set_title(f'{name}', loc='left', fontsize=20)
+    axlist[0].set_title(f'Win Rate: {win_rate}%\nTotal Trades: {len(trades)}\nTotal Profit: ${total_pnl}', loc='right')
+   
 
     add_text_markers(pts, axlist, trades)
 
@@ -207,6 +185,7 @@ class Trade:
         self.return_pct = 0
         self.strategy_name = strategy_name
         self.exit_reason = None
+        self.exit_reason_code = None
 
 #%% """Backtest a single strategy"""
 def backtest_strategy(df, strategy_params, initial_capital, position_size, strategy_name):  
@@ -245,21 +224,25 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
             
             should_exit = False
             exit_reason = None
+            exit_reason_code = None
             
             # Check stop loss
             if stop_loss and current_return <= -stop_loss:
                 should_exit = True
                 exit_reason = 'Stop Loss'
+                exit_reason_code = 'SL'
             
             # Check take profit
             elif take_profit and current_return >= take_profit:
                 should_exit = True
                 exit_reason = 'Take Profit'
+                exit_reason_code = 'TP'
             
             # Check holding period
             elif days_held >= hold_days:
                 should_exit = True
                 exit_reason = f'Hold Period ({hold_days}d)'
+                exit_reason_code = 'H'
             
             if should_exit:
                 # Exit trade
@@ -273,6 +256,7 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
                 
                 active_trade.return_pct = current_return
                 active_trade.exit_reason = exit_reason
+                active_trade.exit_reason_code = exit_reason_code
                 
                 capital += active_trade.shares * active_trade.entry_price + active_trade.pnl
                 trades.append(active_trade)
@@ -280,7 +264,7 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
         
         # Check for new gap up signal (only if no active trade)
         if not active_trade and current_row['is_gap_up'] == True and i > 0:
-            print("current_row", current_row)
+            # print("current_row", current_row)
             entry_price = current_row['open']
             shares = int((capital * position_size) / entry_price)
             
