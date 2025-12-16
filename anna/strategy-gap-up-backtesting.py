@@ -103,21 +103,30 @@ df = load_data(csv_file)
 # print(df)
 
 #%%
+ 
 def add_text_markers(pts, ax, trades):
-    trade_num = 1
+    trade_num = 0    
     for t in trades:
+        trade_num += 1
         r1 = pts[pts["date"]==t.entry_date]
         r2 = pts[pts["date"]==t.exit_date]
-        ax[0].text(r1['tick_num'], 
-                   t.entry_price * 0.995, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='green', weight='bold')
-        ax[0].text(r2['tick_num'], 
+        ax[0].text(r1['tick_num']-1, 
+                   t.entry_price * 0.995, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='blue', weight='bold')
+        ax[0].text(r2['tick_num']-1, 
                    t.exit_price * 0.995, f'[{trade_num}]\n{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='purple', weight='bold')
-        trade_num += 1
+        
     # bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
 
 # %%
-def drawEntryExitChart (pts, name, trades=[]):
+def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
+    has_trade = len(trades) > 0
     pts['trade'] = None
+    pts['pnl'] = 0.0
+    pts['entry_price'] = np.nan
+    # pts['exit_price'] = 0.0
+    pts['total_pnl'] = 0.0
+    pts['total_pnl_above'] = np.nan
+    pts['total_pnl_below'] = np.nan
 
     i = 1
     for t in trades:
@@ -126,9 +135,7 @@ def drawEntryExitChart (pts, name, trades=[]):
         pts.loc[pts['date'] == t.exit_date, 'pnl'] = t.pnl
         i = i+1
 
-    pts['total_pnl'] = 0.0
-    pts['total_pnl_above'] = np.nan
-    pts['total_pnl_below'] = np.nan
+
     total_pnl = 0.0
     for idx, row in pts.iterrows():
         if (np.isfinite(row['pnl'])):
@@ -144,10 +151,6 @@ def drawEntryExitChart (pts, name, trades=[]):
 
     pts['support_line'] = [gap_threshold] * len(pts)
     apd = [
-        mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=50,  color='b'),
-        mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=50, color='red'),
-        # mpf.make_addplot(pts['close'], type='scatter', markersize=10, marker='v', color='b'),
-        # ^v
         mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=2, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
         mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=2, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
         mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=2, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
@@ -158,34 +161,46 @@ def drawEntryExitChart (pts, name, trades=[]):
         mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=3, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
     ]
 
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', volume=True, returnfig=True)
-
-    winning_trades = [t for t in trades if t.pnl > 0]
-    losing_trades = [t for t in trades if t.pnl <= 0]
-
-    total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
-    win_rate = (len(winning_trades) / len(trades)) * 100
-    avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
-    avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
-
+    
     subtitle1 = subtitle2 = ""
-    subtitle1 += f"\nTotal Trades: {len(trades)}"
-    subtitle1 += f"\nWinning Trades: {len(winning_trades)}"
-    subtitle1 += f"\nLosing Trades: {len(losing_trades)}"
-    subtitle2 += f"\nWin Rate: {win_rate:.2f}%"
-    subtitle2 += f"\nTotal Return: {total_return:.2f}%"
-    subtitle2 += f"\nFinal Capital: ${result['final_capital']:,.2f}"
-    subtitle2 += f"\nAvg Win: ${avg_win:.2f}"
-    subtitle2 += f"\nAvg Loss: ${avg_loss:.2f}"
-    if avg_loss != 0:
-        subtitle2 += f"\nProfit Factor: {abs(avg_win/avg_loss):.2f}"
-    else:
-        subtitle2 += f"\n{strategy_name}: No trades executed"
+    subtitle1 += f"Hold Day(s): {params['hold_days']}\n"
+    subtitle1 += f"Stop Loss: {params['stop_loss']}%\n"
+    subtitle1 += f"Take Profit: {params['take_profit']}%\n"
+    if has_trade:
+        apd.extend([
+            mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=20, color='blue'),
+            mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=20, color='purple'),
+        ])
 
-    axlist[0].set_title(f'{name.upper().replace('_', ' ')}', loc='left', fontsize=20)
-    axlist[0].set_title(subtitle1, loc='center', fontsize=8)
+        winning_trades = [t for t in trades if t.pnl > 0]
+        losing_trades = [t for t in trades if t.pnl <= 0]
+
+        total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
+        win_rate = (len(winning_trades) / len(trades)) * 100
+        avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
+        avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
+        
+        subtitle1 += f"Total Trades: {len(trades)}\n"
+        subtitle1 += f"Winning Trades: {len(winning_trades)}\n"
+        subtitle1 += f"Losing Trades: {len(losing_trades)}\n"
+        subtitle2 += f"Win Rate: {win_rate:.2f}%\n"
+        subtitle2 += f"Total Return: {total_return:.2f}%\n"
+        subtitle2 += f"Final Capital: ${result['final_capital']:,.2f}\n"
+        subtitle2 += f"Avg Win: ${avg_win:.2f}\n"
+        subtitle2 += f"Avg Loss: ${avg_loss:.2f}\n"
+        if avg_loss != 0:
+            subtitle2 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
+    else:
+        subtitle2 += f"No trades executed\n"
+
+    date_range = "\n" + df.iloc[0, 0].strftime("%d %b %Y") + '  -  ' + df.iloc[-1, 0].strftime("%d %b %Y")
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
+
+
+    axlist[0].set_title(f'{stgy_name.upper().replace('_', ' ')}', loc='left', fontsize=20)
+    axlist[0].set_title(subtitle1, loc='center', ha='right', fontsize=8)
     axlist[0].set_title(subtitle2, loc='right', fontsize=8)
-   
+     
 
     add_text_markers(pts, axlist, trades)
 
@@ -332,7 +347,7 @@ for strategy_name, params in strategies.items():
     
     trades = result['trades']
 
-    drawEntryExitChart(df, strategy_name, trades)
+    drawEntryExitChart(df, strategy_name, params, trades, result)
 
 # %%
 best_strategy = max(results.items(), key=lambda x: x[1]['final_capital'])
