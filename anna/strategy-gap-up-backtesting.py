@@ -168,14 +168,15 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         mpf.make_addplot(df['sma_20'], panel=0, color='purple', alpha=0.2, width=0.5, label='SMA 20'),
 
         #rsi panel
-        mpf.make_addplot(pts['rsi'], type='line', width=0.5, panel=2, color='b', linestyle="--", label=f"RSI (14)", secondary_y=False),
+        mpf.make_addplot(pts['rsi'], type='line', width=0.5, panel=2, color='b', linestyle="--", label=f"RSI (14)", ylim=(0, 100), secondary_y=False),
         mpf.make_addplot(rsi_overbought_line, type='line', width=0.5, panel=2, color='orange', linestyle="--", label=f"Overbought (70)", secondary_y=False),
         mpf.make_addplot(rsi_oversold_line, type='line', width=0.5, panel=2, color='purple', linestyle="--", label=f"Oversold (30)", secondary_y=False),
        
         #macd panel
         mpf.make_addplot(df['macd'], panel=3, color='blue', linestyle="--", width=0.5, label='MACD'),
-        mpf.make_addplot(df['signal'], panel=3, color='red', linestyle="--", width=0.5, label='Signal'),
-        mpf.make_addplot(df['histogram'], panel=3, type='bar', color=np.where(pts['histogram'] > 0, 'g', 'r'), label=f"MACD Histogram", alpha=0.4, width=0.7),
+        mpf.make_addplot(df['signal'], panel=3, color='red', linestyle="--", width=0.5, ),
+        mpf.make_addplot(df['histogram'], panel=3, type='bar', color=np.where(pts['histogram'] > 0, 'g', 'r'), alpha=0.4, width=0.7),
+        # label='Signal' label=f"MACD Histogram", 
 
         #gap up panel
         mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=4, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
@@ -227,18 +228,19 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     else:
         summary += f"No trades executed\n"
 
+    s = mpf.make_mpf_style(base_mpf_style='yahoo', edgecolor='#000000',rc={'axes.linewidth':0.5})
     date_range = "\n" + df.iloc[0, 0].strftime("%d %b %Y") + '  -  ' + df.iloc[-1, 0].strftime("%d %b %Y")
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style='yahoo', datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style=s, datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
     fig.text(0.1,1.1, f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
     fig.text(0.1,1.05, summary, ha='left', va='top', fontsize=12, color='g' if total_return >= 0 else 'r')
     
-    fig.text(0.56,1.1, subtitle5, ha='right', va='top', fontsize=8)
-    fig.text(0.665,1.1, subtitle4, ha='right', va='top', fontsize=8)
-    fig.text(0.77,1.1, subtitle3, ha='right', va='top', fontsize=8)
-    fig.text(0.88,1.1, subtitle2, ha='right', va='top', fontsize=8)
-    fig.text(1,1.1, subtitle1, ha='right', va='top', fontsize=8)
+    fig.text(0.52,1.1, subtitle5, ha='right', va='top', fontsize=10)
+    fig.text(0.63,1.1, subtitle4, ha='right', va='top', fontsize=10)
+    fig.text(0.75,1.1, subtitle3, ha='right', va='top', fontsize=10)
+    fig.text(0.86,1.1, subtitle2, ha='right', va='top', fontsize=10)
+    fig.text(1,1.1, subtitle1, ha='right', va='top', fontsize=10)
      
 
     add_text_markers(pts, axlist, trades)
