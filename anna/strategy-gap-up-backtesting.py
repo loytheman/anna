@@ -19,9 +19,9 @@ pd.set_option('display.max_columns', None)
 # %%
 strategies = {
     'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
-    'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
-    'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
-    'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
+    # 'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
+    # 'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
+    # 'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
     # 'hold_10_days': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 3},
     # 'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
     # 'aggressive': {'hold_days': 1, 'stop_loss': None, 'take_profit': None},
@@ -32,7 +32,8 @@ strategies = {
 # csv_file = 'ES(495512563)(1 hour)(1 Y)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(6 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
-csv_file = 'ES(495512563)(1 day)(3 M)_historical_data.csv'
+# csv_file = 'ES(495512563)(1 day)(3 M)_historical_data.csv'
+csv_file = 'ES(495512563)(1 day)(4 M)_historical_data.csv'
 # csv_file = 'test.csv'
 
 
@@ -146,29 +147,57 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         if (total_pnl < 0):
             col = "total_pnl_below"
         pts.loc[idx, col] = total_pnl
+
+
+    df['sma_8'] = Utils.calculate_sma(df['close'], period=8)
+    df['sma_20'] = Utils.calculate_sma(df['close'], period=20)
+    pts['rsi'] = Utils.calculate_rsi(df['close'], period=14)
+    df['macd'], df['signal'], df['histogram'] = Utils.calculate_macd(df['close'])
     
     # display(pts)
 
-    pts['support_line'] = [gap_threshold] * len(pts)
-    apd = [
-        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=2, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
-        mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=2, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
-        mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=2, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
-        # mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=2, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
-        # mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=2, color='r', linestyle="--", secondary_y=False),
+    
+    rsi_overbought_line = [70] * len(pts)
+    rsi_oversold_line = [30] * len(pts)
+    support_line = [gap_threshold] * len(pts)
 
-        mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=3, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
-        mpf.make_addplot(pts['support_line'], type='line', width=0.5, panel=3, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
+
+    apd = [
+        #sma
+        mpf.make_addplot(df['sma_8'], panel=0, color='purple', alpha=0.5, width=0.5, label='SMA 8'),
+        mpf.make_addplot(df['sma_20'], panel=0, color='purple', alpha=0.2, width=0.5, label='SMA 20'),
+
+        #rsi panel
+        mpf.make_addplot(pts['rsi'], type='line', width=0.5, panel=2, color='b', linestyle="--", label=f"RSI (14)", secondary_y=False),
+        mpf.make_addplot(rsi_overbought_line, type='line', width=0.5, panel=2, color='orange', linestyle="--", label=f"Overbought (70)", secondary_y=False),
+        mpf.make_addplot(rsi_oversold_line, type='line', width=0.5, panel=2, color='purple', linestyle="--", label=f"Oversold (30)", secondary_y=False),
+       
+        #macd panel
+        mpf.make_addplot(df['macd'], panel=3, color='blue', linestyle="--", width=0.5, label='MACD'),
+        mpf.make_addplot(df['signal'], panel=3, color='red', linestyle="--", width=0.5, label='Signal'),
+        mpf.make_addplot(df['histogram'], panel=3, type='bar', color=np.where(pts['histogram'] > 0, 'g', 'r'), label=f"MACD Histogram", alpha=0.4, width=0.7),
+
+        #gap up panel
+        mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=4, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
+        mpf.make_addplot(support_line, type='line', width=0.5, panel=4, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
+        
+        #trades panel
+        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=5, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
+        mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=5, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
+        mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=5, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
+        # mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=5, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
+        # mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=5, color='r', linestyle="--", secondary_y=False),
+
     ]
 
     
-    summary = subtitle1 = subtitle2 = subtitle3 = ""
-    subtitle3 += f"Inital Capital: ${initial_capital:,.2f}\n"
-    subtitle3 += f"Position Size: {position_size}%\n"
-    subtitle3 += f"Gap Threshold: {gap_threshold}%\n"
-    subtitle2 += f"Hold Day(s): {params['hold_days']}\n"
-    subtitle2 += f"Stop Loss: {params['stop_loss']}%\n"
-    subtitle2 += f"Take Profit: {params['take_profit']}%\n"
+    summary = subtitle1 = subtitle2 = subtitle3 = subtitle4 = subtitle5 = ""
+    subtitle5 += f"Inital Capital: ${initial_capital:,.2f}\n"
+    subtitle5 += f"Position Size: {position_size}%\n"
+    subtitle5 += f"Gap Threshold: {gap_threshold}%\n"
+    subtitle4 += f"Hold Day(s): {params['hold_days']}\n"
+    subtitle4 += f"Stop Loss: {params['stop_loss']}%\n"
+    subtitle4 += f"Take Profit: {params['take_profit']}%\n"
     if has_trade:
         apd.extend([
             mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=20, color='blue'),
@@ -184,28 +213,31 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
         
         summary += f"Total Return: {total_return:.2f}%"
-        subtitle2 += f"Total Trades: {len(trades)}\n"
-        subtitle2 += f"Winning Trades: {len(winning_trades)}\n"
-        subtitle2 += f"Losing Trades: {len(losing_trades)}\n"
-        subtitle1 += f"Total Return: {total_return:.2f}%\n"
-        subtitle1 += f"Final Capital: ${result['final_capital']:,.2f}\n"
-        subtitle1 += f"Win Rate: {win_rate:.2f}%\n"
-        subtitle1 += f"Avg Win: ${avg_win:.2f}\n"
-        subtitle1 += f"Avg Loss: ${avg_loss:.2f}\n"
+        subtitle3 += f"Total Trades: {len(trades)}\n"
+        subtitle3 += f"Winning Trades: {len(winning_trades)}\n"
+        subtitle3 += f"Losing Trades: {len(losing_trades)}\n"
+        subtitle2 += f"Avg Win: ${avg_win:.2f}\n"
+        subtitle2 += f"Avg Loss: ${avg_loss:.2f}\n"
         if avg_loss != 0:
-            subtitle1 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
+            subtitle2 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
+        subtitle1 += f"Total Return: {total_return:.2f}%\n"
+        subtitle1 += f"Win Rate: {win_rate:.2f}%\n"
+        subtitle1 += f"Final Capital: ${result['final_capital']:,.2f}\n"
+        
     else:
         summary += f"No trades executed\n"
 
     date_range = "\n" + df.iloc[0, 0].strftime("%d %b %Y") + '  -  ' + df.iloc[-1, 0].strftime("%d %b %Y")
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 6), style='yahoo', datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style='yahoo', datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
     fig.text(0.1,1.1, f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
     fig.text(0.1,1.05, summary, ha='left', va='top', fontsize=12, color='g' if total_return >= 0 else 'r')
     
-    fig.text(0.72,1.1, subtitle3, ha='right', va='top', fontsize=8)
-    fig.text(0.85,1.1, subtitle2, ha='right', va='top', fontsize=8)
+    fig.text(0.56,1.1, subtitle5, ha='right', va='top', fontsize=8)
+    fig.text(0.665,1.1, subtitle4, ha='right', va='top', fontsize=8)
+    fig.text(0.77,1.1, subtitle3, ha='right', va='top', fontsize=8)
+    fig.text(0.88,1.1, subtitle2, ha='right', va='top', fontsize=8)
     fig.text(1,1.1, subtitle1, ha='right', va='top', fontsize=8)
      
 
