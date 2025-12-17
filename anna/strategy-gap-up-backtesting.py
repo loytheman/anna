@@ -168,9 +168,11 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         mpf.make_addplot(df['sma_20'], panel=0, color='purple', alpha=0.2, width=0.5, label='SMA 20'),
 
         #rsi panel
-        mpf.make_addplot(pts['rsi'], type='line', width=0.5, panel=2, color='b', linestyle="--", label=f"RSI (14)", ylim=(0, 100), secondary_y=False),
-        mpf.make_addplot(rsi_overbought_line, type='line', width=0.5, panel=2, color='orange', linestyle="--", label=f"Overbought (70)", secondary_y=False),
-        mpf.make_addplot(rsi_oversold_line, type='line', width=0.5, panel=2, color='purple', linestyle="--", label=f"Oversold (30)", secondary_y=False),
+        mpf.make_addplot(pts['rsi'], type='line', width=0.8, panel=2, color='b', linestyle="--", label=f"RSI (14)", ylim=(0, 100), 
+            fill_between={'y1': rsi_overbought_line, 'y2': rsi_oversold_line, 'color': 'cyan', 'alpha': 0.4, 'edgecolor':'black', 'linestyle':'--'}, 
+            secondary_y=False),
+        # mpf.make_addplot(rsi_overbought_line, type='line', width=0.5, panel=2, color='orange', linestyle="--", label=f"Overbought (70)", secondary_y=False),
+        # mpf.make_addplot(rsi_oversold_line, type='line', width=0.5, panel=2, color='purple', linestyle="--", label=f"Oversold (30)", secondary_y=False),
        
         #macd panel
         mpf.make_addplot(df['macd'], panel=3, color='blue', linestyle="--", width=0.5, label='MACD'),
