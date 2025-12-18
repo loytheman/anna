@@ -4,6 +4,19 @@ from datetime import datetime, timedelta
 
 
 class Utils:
+
+    def get_ax_by_label(fig, target_label):
+        """
+        Finds and returns the Axes object within a Figure that has a specific x or y label.
+        """
+        for ax in fig.axes:
+            # Check x-axis label
+            if ax.get_xlabel() == target_label:
+                return ax
+            # Check y-axis label
+            if ax.get_ylabel() == target_label:
+                return ax
+        return None 
     
     def busday_diff(start, end):
         """Calculate business days between two dates using NumPy."""

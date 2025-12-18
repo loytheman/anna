@@ -4,7 +4,7 @@ import pandas as pd
 pd.set_option('display.width', 160)
 pd.set_option('display.max_rows', 10) 
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 import matplotlib.dates as mdates
 from datetime import datetime
 import mplfinance as mpf
@@ -85,6 +85,11 @@ def load_data(csv_file):
 
     df.loc[df['date'].isin(df_daily['date']), ['gap_pct', 'is_gap_up']] = df_daily[['gap_pct', 'is_gap_up']]
 
+    df['sma_8'] = Utils.calculate_sma(df['close'], period=8)
+    df['sma_20'] = Utils.calculate_sma(df['close'], period=20)
+    df['rsi'] = Utils.calculate_rsi(df['close'], period=14)
+    df['macd'], df['signal'], df['histogram'] = Utils.calculate_macd(df['close'])
+
     # display(df[df['gap_pct'] > 0])
     # display(df[df['is_gap_up'] == True])
 
@@ -94,34 +99,12 @@ def load_data(csv_file):
 df = load_data(csv_file)
 # mask = (df['date'] > "2025-09-25") & (df['date'] <= "2025-10-15")
 # df = df.loc[mask].copy()
-
-
-# print(f"Data loaded: {len(df)} rows")
-# print(f"Gap ups found: {df['is_gap_up'].sum()}")
-# print(f"Date range: {df['date'].min()} to {df['date'].max()}")
-
-# print(df[df['is_gap_up'] == True])
-# print(df)
-
-#%%
- 
-def add_text_markers(pts, ax, trades):
-    trade_num = 0    
-    for t in trades:
-        trade_num += 1
-        r1 = pts[pts["date"]==t.entry_date]
-        r2 = pts[pts["date"]==t.exit_date]
-        ax[0].text(r1['tick_num']-1, 
-                   t.entry_price * 0.995, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='blue', weight='bold')
-        ax[0].text(r2['tick_num']-1, 
-                   t.exit_price * 0.995, f'[{trade_num}]\n{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='purple', weight='bold')
-        
-    # bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
+   
 
 # %%
 def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     has_trade = len(trades) > 0
-    pts['trade'] = None
+    pts['trade_num'] = np.nan
     pts['pnl'] = 0.0
     pts['entry_price'] = np.nan
     # pts['exit_price'] = 0.0
@@ -131,31 +114,20 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
 
     i = 1
     for t in trades:
-        pts.loc[pts['date'] == t.entry_date, ['entry_price', 'trade']] = [t.entry_price, i]
-        pts.loc[pts['date'] == t.exit_date, ['exit_price', 'trade']] = [t.exit_price, i]
+        pts.loc[pts['date'] == t.entry_date, ['entry_price', 'trade_num']] = [t.entry_price, i]
+        pts.loc[pts['date'] == t.exit_date, ['exit_price', 'trade_num']] = [t.exit_price, i]
         pts.loc[pts['date'] == t.exit_date, 'pnl'] = t.pnl
         i = i+1
 
 
     total_pnl = 0.0
-    for idx, row in pts.iterrows():
+    for i, row in pts.iterrows():
         if (np.isfinite(row['pnl'])):
             total_pnl += row['pnl']
+        pts.loc[i, "total_pnl"] = total_pnl
 
-        pts.loc[idx, "total_pnl"] = total_pnl
-        col = "total_pnl_above"
-        if (total_pnl < 0):
-            col = "total_pnl_below"
-        pts.loc[idx, col] = total_pnl
-
-
-    df['sma_8'] = Utils.calculate_sma(df['close'], period=8)
-    df['sma_20'] = Utils.calculate_sma(df['close'], period=20)
-    pts['rsi'] = Utils.calculate_rsi(df['close'], period=14)
-    df['macd'], df['signal'], df['histogram'] = Utils.calculate_macd(df['close'])
     
     # display(pts)
-
     
     rsi_overbought_line = [70] * len(pts)
     rsi_oversold_line = [30] * len(pts)
@@ -185,13 +157,14 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         mpf.make_addplot(support_line, type='line', width=0.5, panel=4, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
         
         #trades panel
+        # mpf.make_addplot(pts['trade_num'], type='scatter', width=1.2, panel=5, ylabel="Trades", secondary_y=False, alpha=0.5),
         mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=5, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
+        ### WTF!!!
+        # mpf.make_addplot([50]*len(pts), type='scatter', width=1.2, panel=5, markersize=100, marker=pts['trade_2'], color='b',secondary_y=False, alpha=0.5),
         mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=5, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
         mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=5, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
-        # mpf.make_addplot(pts['total_pnl_above'], type='line', width=0.8, panel=5, color='g', linestyle="--", label=f"total pnl", secondary_y=False),
-        # mpf.make_addplot(pts['total_pnl_below'], type='line', width=0.8, panel=5, color='r', linestyle="--", secondary_y=False),
-
     ]
+
 
     
     summary = subtitle1 = subtitle2 = subtitle3 = subtitle4 = subtitle5 = ""
@@ -243,9 +216,20 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     fig.text(0.75,1.1, subtitle3, ha='right', va='top', fontsize=10)
     fig.text(0.86,1.1, subtitle2, ha='right', va='top', fontsize=10)
     fig.text(1,1.1, subtitle1, ha='right', va='top', fontsize=10)
-     
+    
 
-    add_text_markers(pts, axlist, trades)
+    ax1 = axlist[0]
+    ax2 = Utils.get_ax_by_label(fig, "PNL")
+
+    trade_num = 0    
+    for t in trades:
+        trade_num += 1
+        r1 = pts[pts["date"]==t.entry_date]
+        r2 = pts[pts["date"]==t.exit_date]
+        ax1.text(r1['tick_num']-1, t.entry_price * 0.995, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='b', weight='bold')
+        ax1.text(r2['tick_num']-1, t.exit_price * 0.995, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
+        ax2.text(r1['tick_num']-1, 0, f'[{trade_num}]', ha='center', va='top', fontsize=7, color='b', weight='bold')
+         # bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
 
 # pts = df.copy()
 # drawEntryExitChart(df.copy(), "test")
@@ -339,8 +323,8 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
                 trades.append(active_trade)
                 active_trade = None
         
-        # Check for new gap up signal (only if no active trade)
-        if not active_trade and current_row['is_gap_up'] == True and i > 0:
+        # Check for new gap up signal (only if no active trade) and MACD > 0
+        elif not active_trade and current_row['is_gap_up'] == True and current_row['histogram'] > 0 and i > 0:
             # print("current_row", current_row)
             entry_price = current_row['open']
             shares = int((capital * position_size) / entry_price)
@@ -370,6 +354,7 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
     # for t in trades:
     #     print(t.entry_date, t.exit_date)
     
+    trades = [t for t in trades if t.exit_reason_code != None]
     
     return {
         'trades': trades,
