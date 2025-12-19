@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 
 class Utils:
 
+    def clamp(value, min_val, max_val):
+        return max(min(value, max_val), min_val)
+
     def get_ax_by_label(fig, target_label):
         """
         Finds and returns the Axes object within a Figure that has a specific x or y label.
