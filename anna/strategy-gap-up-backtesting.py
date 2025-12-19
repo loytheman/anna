@@ -1,15 +1,16 @@
 # %%
+%matplotlib
+
+# %%
 # Gap Up Identifier - Jupyter Notebook
 import pandas as pd
 pd.set_option('display.width', 160)
 pd.set_option('display.max_rows', 10) 
 import numpy as np
-import matplotlib as mpl
-import matplotlib.dates as mdates
-from datetime import datetime
+import matplotlib.pyplot as plt
 import mplfinance as mpf
-import datetime as dt
 from _Utils import Utils
+import datetime
 from IPython.display import display
 
 
@@ -19,21 +20,21 @@ pd.set_option('display.max_columns', None)
 # %%
 strategies = {
     'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
-    # 'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_10_days': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 3},
-    # 'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
-    # 'aggressive': {'hold_days': 1, 'stop_loss': None, 'take_profit': None},
-    # 'fade_gap': {'hold_days': 1, 'stop_loss': 3.0, 'take_profit': 2.0, 'fade': True}
+    'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
+    'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
+    'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
+    'hold_10_days': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 3},
+    'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
+    'aggressive': {'hold_days': 1, 'stop_loss': None, 'take_profit': None},
+    'fade_gap': {'hold_days': 1, 'stop_loss': 3.0, 'take_profit': 2.0, 'fade': True}
 }
 
-#csv_file = 'ES(495512563)(1 hour)_historical_data.csv'
+csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(1 Y)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(6 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 day)(3 M)_historical_data.csv'
-csv_file = 'ES(495512563)(1 day)(4 M)_historical_data.csv'
+# csv_file = 'ES(495512563)(1 day)(4 M)_historical_data.csv'
 # csv_file = 'test.csv'
 
 
@@ -76,8 +77,8 @@ def load_data(csv_file):
     # print(closing_bars.head(3))
 
     df_daily = df[(df['is_market_open'] == True) | (df['is_market_close'] == True)].copy()
-    df_daily["prev_close"] = None
-    df_daily["gap_pct"] = None
+    df_daily["prev_close"] = np.nan
+    df_daily["gap_pct"] = np.nan
     df_daily.loc[df['is_market_open'] == True, 'prev_close'] = df_daily['close'].shift(1)
     df_daily.loc[df['is_market_open'] == True, 'gap_pct'] = ((df_daily['open'] - df_daily['prev_close']) / df_daily['prev_close']) * 100
     df_daily["is_gap_up"] = False
@@ -177,7 +178,7 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
     if has_trade:
         apd.extend([
             mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=20, color='blue'),
-            mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=20, color='purple'),
+            # mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=20, color='purple'),
         ])
 
         winning_trades = [t for t in trades if t.pnl > 0]
@@ -229,6 +230,7 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         ax1.text(r1['tick_num']-1, t.entry_price * 0.995, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='b', weight='bold')
         ax1.text(r2['tick_num']-1, t.exit_price * 0.995, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
         ax2.text(r1['tick_num']-1, 0, f'[{trade_num}]', ha='center', va='top', fontsize=7, color='b', weight='bold')
+        ax2.text(r1['tick_num']-1, -30, f'{t.entry_date.strftime("%d %b")}', ha='center', va='top', fontsize=7, weight='bold', rotation=45)
          # bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
 
 # pts = df.copy()
