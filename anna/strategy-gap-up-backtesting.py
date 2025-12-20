@@ -137,9 +137,9 @@ class StrategySummary:
 
 
 # %% drawEntryExitChart
-def drawEntryExitChart (pts, stgy_name, stgy_params, result, summary):
-    trades = result['trades']
-    equity_curve = result['equity_curve']
+def drawEntryExitChart (pts, summary):
+    trades = summary.trades
+    equity_curve = summary.equity_curve
 
 
     has_trade = len(trades) > 0
@@ -218,8 +218,6 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, result, summary):
             mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=20, color='blue'),
             mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=20, color='purple'),
         ])
-
-        
         info += f"Total Return: {s.total_return:.2f}%"
         subtitle3 += f"Total Trades: {len(trades)}\n"
         subtitle3 += f"Winning Trades: {len(s.winning_trades)}\n"
@@ -244,7 +242,7 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, result, summary):
         xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
-    fig.text(0.1,1.1, f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
+    fig.text(0.1,1.1, f'{s.name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
     fig.text(0.1,1.05, info, ha='left', va='top', fontsize=12, color='g' if s.total_return >= 0 else 'r')
     
     fig.text(0.52,1.1, subtitle5, ha='right', va='top', fontsize=10)
@@ -480,9 +478,9 @@ for strategy_name, params in strategies.items():
     result = backtest_gap_up_strategy(df, params, initial_capital, position_size, strategy_name)
     results[strategy_name] = result
     summary = StrategySummary(strategy_name, result)
-    drawEntryExitChart(df, strategy_name, params, result, summary)
+    drawEntryExitChart(df, summary)
 
-    print(f"STRATEGY: {strategy_name.upper().replace('_', ' ')}")
+    print(f"STRATEGY: {summary.name.upper().replace('_', ' ')}")
 
 
 
