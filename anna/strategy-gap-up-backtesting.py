@@ -36,7 +36,7 @@ csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
 
 
 initial_capital = 10000  
-position_size = 0.95 
+position_size = 1.0
 gap_threshold = 0.35
 
 
@@ -100,7 +100,12 @@ df = load_data(csv_file)
    
 
 # %%
-def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
+def drawEntryExitChart (pts, stgy_name, stgy_params, result={}):
+    trades = result['trades']
+    final_capital = result['final_capital']
+    equity_curve = result['equity_curve']
+
+
     has_trade = len(trades) > 0
     pts['trade_num'] = np.nan
     pts['pnl'] = 0.0
@@ -126,7 +131,6 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
 
     
     # display(pts)
-    
     rsi_overbought_line = [70] * len(pts)
     rsi_oversold_line = [30] * len(pts)
     support_line = [gap_threshold] * len(pts)
@@ -154,17 +158,18 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=4, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
         mpf.make_addplot(support_line, type='line', width=0.5, panel=4, color='r', linestyle="--", label=f"Gap up threshold {gap_threshold}%", secondary_y=False),
         
+        #Equity
+        mpf.make_addplot(equity_curve['equity'], type='line', width=0.8, panel=5, color='purple', linestyle="--", label=f"Equity Curve", secondary_y=False),
+
         #trades panel
         # mpf.make_addplot(pts['trade_num'], type='scatter', width=1.2, panel=5, ylabel="Trades", secondary_y=False, alpha=0.5),
-        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=5, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
-        ### WTF!!!
-        # mpf.make_addplot([50]*len(pts), type='scatter', width=1.2, panel=5, markersize=100, marker=pts['trade_2'], color='b',secondary_y=False, alpha=0.5),
-        mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=5, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
-        mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=5, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
+        mpf.make_addplot(pts['pnl'], type='bar', width=1.2, panel=6, color=np.where(pts['pnl'] > 0, 'g', 'r'), ylabel="PNL", secondary_y=False, alpha=0.5),
+        mpf.make_addplot(pts['total_pnl'], type='bar', width=0.8, panel=6, color=np.where(pts['total_pnl'] > 0, 'green', 'red'), secondary_y=False, alpha=0.1),
+        mpf.make_addplot(pts['total_pnl'], type='line', width=0.8, panel=6, color='purple', linestyle="--", label=f"Total PnL", secondary_y=False),
+        
     ]
 
 
-    
     summary = subtitle1 = subtitle2 = subtitle3 = subtitle4 = subtitle5 = ""
     subtitle5 += f"Inital Capital: ${initial_capital:,.2f}\n"
     subtitle5 += f"Position Size: {position_size}%\n"
@@ -181,7 +186,7 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
         winning_trades = [t for t in trades if t.pnl > 0]
         losing_trades = [t for t in trades if t.pnl <= 0]
 
-        total_return = ((result['final_capital'] - initial_capital) / initial_capital) * 100
+        total_return = ((final_capital - initial_capital) / initial_capital) * 100
         win_rate = (len(winning_trades) / len(trades)) * 100
         avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
         avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
@@ -196,14 +201,18 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
             subtitle2 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
         subtitle1 += f"Total Return: {total_return:.2f}%\n"
         subtitle1 += f"Win Rate: {win_rate:.2f}%\n"
-        subtitle1 += f"Final Capital: ${result['final_capital']:,.2f}\n"
+        subtitle1 += f"Final Capital: ${final_capital:,.2f}\n"
         
     else:
         summary += f"No trades executed\n"
 
+
+    price_max = df['high'].max() + 50
+    price_min = df['low'].min() - 50
     s = mpf.make_mpf_style(base_mpf_style='yahoo', edgecolor='#000000',rc={'axes.linewidth':0.5})
     date_range = "\n" + df.iloc[0, 0].strftime("%d %b %Y") + '  -  ' + df.iloc[-1, 0].strftime("%d %b %Y")
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style=s, datetime_format='%d/%m', xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style=s, datetime_format='%d/%m', ylim=(price_min, price_max), 
+        xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
     fig.text(0.1,1.1, f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
@@ -218,17 +227,14 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, trades=[], result={}):
 
     ax1 = axlist[0]
     ax2 = Utils.get_ax_by_label(fig, "PNL")
-    ypos_max = df['high'].max()
-    ypos_min = df['low'].min()
+
 
     trade_num = 0    
     for t in trades:
-        p1 = Utils.clamp(t.entry_price-10, ypos_min, ypos_max)
-        p2 = Utils.clamp(t.exit_price-10, ypos_min, ypos_max)
         r1 = pts[pts["date"]==t.entry_date]
         r2 = pts[pts["date"]==t.exit_date]
-        ax1.text(r1['tick_num']-1, p1, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='b', weight='bold')
-        ax1.text(r2['tick_num']-1, p2, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
+        ax1.text(r1['tick_num']-1, t.entry_price-2, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='b', weight='bold')
+        ax1.text(r2['tick_num']-1, t.exit_price-20, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
         ax2.text(r1['tick_num']-1, 0, f'[{trade_num}]', ha='center', va='top', fontsize=7, color='b', weight='bold')
         ax2.text(r1['tick_num']-1, -30, f'{t.entry_date.strftime("%d %b")}', ha='center', va='top', fontsize=7, weight='bold', rotation=45)
         ax2.text(r2['tick_num']-1, -30, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
@@ -361,12 +367,78 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
     #     print(t.entry_date, t.exit_date)
     
     trades = [t for t in trades if t.exit_reason_code != None]
+    equity_curve = pd.DataFrame(equity_curve)
     
     return {
         'trades': trades,
         'final_capital': capital,
-        'equity_curve': pd.DataFrame(equity_curve)
-    }
+        'equity_curve': equity_curve,
+     }
+#%%
+def backtest_rsi_strategy(df, initial_capital, position_size):
+    """
+    Backtest RSI strategy:
+    - Buy when RSI < oversold threshold
+    - Sell when RSI > overbought threshold
+    """
+    rsi_oversold=30
+    rsi_overbought=70,
+    df = df.copy()
+   
+    # Initialize variables
+    position = 0  # 0 = no position, 1 = holding
+    shares = 0
+    cash = initial_capital
+    trades = []
+    
+    # Generate signals
+    df['signal'] = 0
+    df.loc[df['rsi'] < rsi_oversold, 'signal'] = 1  # Buy signal
+    df.loc[df['rsi'] > rsi_overbought, 'signal'] = -1  # Sell signal
+    
+    # Execute trades
+    for i in range(len(df)):
+        date = df.index[i]
+        price = float(df['close'].iloc[i])
+        signal = int(df['signal'].iloc[i]) if not pd.isna(df['signal'].iloc[i]) else 0
+        rsi = float(df['rsi'].iloc[i]) if not pd.isna(df['rsi'].iloc[i]) else np.nan
+        
+        # Buy logic
+        if signal == 1 and position == 0 and not np.isnan(rsi):
+            shares = cash / price
+            cash = 0
+            position = 1
+            trades.append({
+                'Date': date,
+                'Type': 'BUY',
+                'Price': price,
+                'Shares': shares,
+                'RSI': rsi
+            })
+        
+        # Sell logic
+        elif signal == -1 and position == 1 and not np.isnan(rsi):
+            cash = shares * price
+            trades.append({
+                'Date': date,
+                'Type': 'SELL',
+                'Price': price,
+                'Shares': shares,
+                'RSI': rsi,
+                'Profit': cash - initial_capital
+            })
+            shares = 0
+            position = 0
+        
+        # Calculate portfolio value
+        current_value = cash + (shares * price if position == 1 else 0)
+
+    return {
+        'trades': trades,
+        'final_capital': current_value,
+     }
+    
+    return df, trades
 
 
 #%%  BACKTESTING ALL STRATEGIES
@@ -378,10 +450,7 @@ results = {}
 for strategy_name, params in strategies.items():
     result = backtest_strategy(df, params, initial_capital, position_size, strategy_name)
     results[strategy_name] = result
-    
-    trades = result['trades']
-
-    drawEntryExitChart(df, strategy_name, params, trades, result)
+    drawEntryExitChart(df, strategy_name, params, result)
 
 # %%
 best_strategy = max(results.items(), key=lambda x: x[1]['final_capital'])
