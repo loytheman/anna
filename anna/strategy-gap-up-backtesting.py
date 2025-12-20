@@ -7,34 +7,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 from _Utils import Utils
-from _Class import Trade, StrategySummary
+from _Class import Trade, Strategy, StrategySummary
+from StrategyGapUp import StrategyGapUp
 import datetime
 from IPython.display import display
+from typing import cast
 
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
-# %%
-strategies = {
-    'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
-    # 'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
-    # 'hold_10_days': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 3},
-    # 'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
-    # 'aggressive': {'hold_days': 1, 'stop_loss': None, 'take_profit': None},
-    # 'fade_gap': {'hold_days': 1, 'stop_loss': 3.0, 'take_profit': 2.0, 'fade': True}
-}
-
-csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
+# csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(1 Y)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(6 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 hour)(3 M)_historical_data.csv'
-# csv_file = 'ES(495512563)(1 day)(3 M)_historical_data.csv'
+csv_file = 'ES(495512563)(1 day)(3 M)_historical_data.csv'
 # csv_file = 'ES(495512563)(1 day)(4 M)_historical_data.csv'
 # csv_file = 'test.csv'
-
 
 INITIAL_CAPITAL = 10000
 GAP_THRESHOLD = 0.35
@@ -78,10 +67,7 @@ def load_data(csv_file):
     df_daily["gap_pct"] = np.nan
     df_daily.loc[df['is_market_open'] == True, 'prev_close'] = df_daily['close'].shift(1)
     df_daily.loc[df['is_market_open'] == True, 'gap_pct'] = ((df_daily['open'] - df_daily['prev_close']) / df_daily['prev_close']) * 100
-    df_daily["is_gap_up"] = False
-    df_daily['is_gap_up'] = df_daily['gap_pct'] > GAP_THRESHOLD
-
-    df.loc[df['date'].isin(df_daily['date']), ['gap_pct', 'is_gap_up']] = df_daily[['gap_pct', 'is_gap_up']]
+    df.loc[df['date'].isin(df_daily['date']), 'gap_pct'] = df_daily['gap_pct']
 
     df['sma_8'] = Utils.calculate_sma(df['close'], period=8)
     df['sma_20'] = Utils.calculate_sma(df['close'], period=20)
@@ -99,7 +85,7 @@ df = load_data(csv_file)
 # df = df.loc[mask].copy()
    
 # %% drawEntryExitChart
-def drawEntryExitChart (pts, summary):
+def drawEntryExitChart (pts, strategy:Strategy, summary:StrategySummary):
     trades = summary.trades
     equity_curve = summary.equity_curve
 
@@ -131,7 +117,9 @@ def drawEntryExitChart (pts, summary):
     # display(pts)
     rsi_overbought_line = [70] * len(pts)
     rsi_oversold_line = [30] * len(pts)
-    support_line = [GAP_THRESHOLD] * len(pts)
+    
+
+
 
 
     apd = [
@@ -154,7 +142,6 @@ def drawEntryExitChart (pts, summary):
 
         #gap up panel
         mpf.make_addplot(pts['gap_pct'], type='bar',  width=0.5, panel=4, color=np.where(pts['is_gap_up'], 'b', 'lightsteelblue'), ylabel="Gap %", secondary_y=False, alpha=0.5),
-        mpf.make_addplot(support_line, type='line', width=0.5, panel=4, color='r', linestyle="--", label=f"Gap up threshold {GAP_THRESHOLD}%", secondary_y=False),
         
         #Equity
         mpf.make_addplot(equity_curve['equity'], type='line', width=0.8, panel=5, color='purple', linestyle="--", label=f"Equity Curve", secondary_y=False),
@@ -167,13 +154,15 @@ def drawEntryExitChart (pts, summary):
         
     ]
 
+
+
     s = summary
     info = subtitle1 = subtitle2 = subtitle3 = subtitle4 = subtitle5 = ""
-    subtitle5 += f"Inital Capital: ${initial_capital:,.2f}\n"
-    subtitle5 += f"Gap Threshold: {GAP_THRESHOLD}%\n"
-    subtitle4 += f"Hold Day(s): {params['hold_days']}\n"
-    subtitle4 += f"Stop Loss: {params['stop_loss']}%\n"
-    subtitle4 += f"Take Profit: {params['take_profit']}%\n"
+    subtitle4 += f"Inital Capital: ${INITIAL_CAPITAL:,.2f}\n"
+    # subtitle5 += f"Gap Threshold: {GAP_THRESHOLD}%\n"
+    # subtitle4 += f"Hold Day(s): {params['hold_days']}\n"
+    # subtitle4 += f"Stop Loss: {params['stop_loss']}%\n"
+    # subtitle4 += f"Take Profit: {params['take_profit']}%\n"
     if has_trade:
         apd.extend([
             mpf.make_addplot(pts['entry_price'], type='scatter', marker='^', markersize=20, color='blue'),
@@ -193,6 +182,14 @@ def drawEntryExitChart (pts, summary):
         
     else:
         info += f"No trades executed\n"
+
+
+    if (strategy.type == StrategyGapUp.TYPE):
+        stgy = cast(StrategyGapUp, strategy)
+        gap_threshold_line = [stgy.gap_threshold] * len(pts)
+        apd.extend([
+            mpf.make_addplot(gap_threshold_line, type='line', width=0.5, panel=4, color='r', linestyle="--", label=f"Gap up threshold {stgy.gap_threshold}%", secondary_y=False),
+        ])
 
 
     price_max = df['high'].max() + 50
@@ -219,13 +216,13 @@ def drawEntryExitChart (pts, summary):
 
     trade_num = 0    
     for t in trades:
-        r1 = pts[pts["date"]==t.entry_date]
-        r2 = pts[pts["date"]==t.exit_date]
-        ax1.text(r1['tick_num']-1, t.entry_price-2, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='b', weight='bold')
-        ax1.text(r2['tick_num']-1, t.exit_price-20, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
-        ax2.text(r1['tick_num']-1, 0, f'[{trade_num}]', ha='center', va='top', fontsize=7, color='b', weight='bold')
-        ax2.text(r1['tick_num']-1, -30, f'{t.entry_date.strftime("%d %b")}', ha='center', va='top', fontsize=7, weight='bold', rotation=45)
-        ax2.text(r2['tick_num']-1, -30, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
+        r1 = int(pts[pts["date"]==t.entry_date].iloc[0]['tick_num'])
+        r2 = int(pts[pts["date"]==t.exit_date].iloc[0]['tick_num'])
+        ax1.text(r1 -1, t.entry_price-20, f'[{trade_num}]', ha='center', va='top', fontsize=8, color='b', weight='bold')
+        ax1.text(r2 -1, t.exit_price-20, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
+        ax2.text(r1 -1, 0, f'[{trade_num}]', ha='center', va='top', fontsize=7, color='b', weight='bold')
+        ax2.text(r1 -1, -30, f'{t.entry_date.strftime("%d %b")}', ha='center', va='top', fontsize=7, weight='bold', rotation=45)
+        ax2.text(r2 -1, -30, f'[{trade_num}]{t.exit_reason_code}', ha='center', va='top', fontsize=8, color='r', weight='bold')
          # bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
         trade_num += 1
 
@@ -233,121 +230,6 @@ def drawEntryExitChart (pts, summary):
 
 # pts = df.copy()
 # drawEntryExitChart(df.copy(), "test")
-#%% backtest_gap_up_strategy
-def backtest_gap_up_strategy(df, strategy_params, initial_capital, strategy_name):  
-    capital = initial_capital
-    trades = []
-    active_trade = None
-    equity_curve = []
-    
-    hold_days = strategy_params['hold_days']
-    stop_loss = strategy_params.get('stop_loss')
-    take_profit = strategy_params.get('take_profit')
-    fade = strategy_params.get('fade', False)  # Fade = short the gap
-    
-    for i in range(len(df)):
-        current_row = df.iloc[i]
-        date = current_row['date']
-        
-        # Track equity
-        if active_trade:
-            current_value = capital + (active_trade.shares * current_row['close'])
-        else:
-            current_value = capital
-        equity_curve.append({'date': date, 'equity': current_value})
-        
-        # Check if we need to exit an active trade
-        if active_trade:
-            days_held = Utils.busday_diff(active_trade.entry_date, date)
-            # print(active_trade.entry_date, date, "days_held", days_held)
-            current_price = current_row['close']
-            
-            # Calculate current return
-            if fade:
-                current_return = ((active_trade.entry_price - current_price) / active_trade.entry_price) * 100
-            else:
-                current_return = ((current_price - active_trade.entry_price) / active_trade.entry_price) * 100
-            
-            should_exit = False
-            exit_reason = None
-            exit_reason_code = None
-            
-            # Check stop loss
-            if stop_loss and current_return <= -stop_loss:
-                should_exit = True
-                exit_reason = 'Stop Loss'
-                exit_reason_code = 'SL'
-            
-            # Check take profit
-            elif take_profit and current_return >= take_profit:
-                should_exit = True
-                exit_reason = 'Take Profit'
-                exit_reason_code = 'TP'
-            
-            # Check holding period
-            elif days_held >= hold_days:
-                should_exit = True
-                exit_reason = f'Hold Period ({hold_days}d)'
-                exit_reason_code = 'H'
-            
-            if should_exit:
-                # Exit trade
-                active_trade.exit_date = date
-                active_trade.exit_price = current_price
-                
-                if fade:
-                    active_trade.pnl = active_trade.shares * (active_trade.entry_price - current_price)
-                else:
-                    active_trade.pnl = active_trade.shares * (current_price - active_trade.entry_price)
-                
-                active_trade.return_pct = current_return
-                active_trade.exit_reason = exit_reason
-                active_trade.exit_reason_code = exit_reason_code
-                
-                capital += active_trade.shares * active_trade.entry_price + active_trade.pnl
-                trades.append(active_trade)
-                active_trade = None
-        
-        # Check for new gap up signal (only if no active trade) and MACD > 0
-        elif not active_trade and current_row['is_gap_up'] == True and current_row['histogram'] > 0 and i > 0:
-            # print("current_row", current_row)
-            entry_price = current_row['open']
-            shares = int(capital / entry_price)
-            
-            if shares > 0:
-                active_trade = Trade(date, entry_price, shares, strategy_name)
-                capital -= shares * entry_price
-    
-    # Close any remaining open trade
-    if active_trade:
-        last_row = df.iloc[-1]
-        active_trade.exit_date = last_row['date']
-        active_trade.exit_price = last_row['close']
-        
-        if fade:
-            active_trade.pnl = active_trade.shares * (active_trade.entry_price - last_row['close'])
-            active_trade.return_pct = ((active_trade.entry_price - last_row['close']) / active_trade.entry_price) * 100
-        else:
-            active_trade.pnl = active_trade.shares * (last_row['close'] - active_trade.entry_price)
-            active_trade.return_pct = ((last_row['close'] - active_trade.entry_price) / active_trade.entry_price) * 100
-        
-        active_trade.exit_reason = 'End of Data'
-        capital += active_trade.shares * active_trade.entry_price + active_trade.pnl
-        trades.append(active_trade)
-
-    # print("------------- trade --------------")
-    # for t in trades:
-    #     print(t.entry_date, t.exit_date)
-    
-    trades = [t for t in trades if t.exit_reason_code != None]
-    equity_curve = pd.DataFrame(equity_curve)
-    
-    return {
-        'trades': trades,
-        'final_capital': capital,
-        'equity_curve': equity_curve,
-     }
-#%% backtest_rsi_strategy
 def backtest_rsi_strategy(df, initial_capital):
     """
     Backtest RSI strategy:
@@ -419,33 +301,51 @@ print("\n" + "="*80)
 print("BACKTESTING ALL STRATEGIES")
 print("="*80)
 
-results = {}
-for strategy_name, params in strategies.items():
-    result = backtest_gap_up_strategy(df, params, INITIAL_CAPITAL, strategy_name)
-    results[strategy_name] = result
-    summary = StrategySummary(strategy_name, INITIAL_CAPITAL, result)
-    drawEntryExitChart(df, summary)
+    
+strategies = {
+    StrategyGapUp(initial_capital=10000, gap_threshold=0.35, hold_days=1, stop_loss=None, take_profit=None),
+    StrategyGapUp(initial_capital=10000, gap_threshold=0.35, hold_days=2, stop_loss=None, take_profit=None)
+}
 
-    print(f"STRATEGY: {summary.name.upper().replace('_', ' ')}")
+for stgy in strategies:
+    result = stgy.backtest(df)
+    # results[strategy_name] = result
+    summary = StrategySummary(stgy, INITIAL_CAPITAL, result)
 
+    drawEntryExitChart(result.df, stgy, summary)
+
+    print(f"\nSTRATEGY: {summary.name.upper().replace('_', ' ')} ({summary.total_return:.2f}%) ({len(summary.trades)} trades)")
+    
+    trades_df = pd.DataFrame([{
+        'Entry Date': t.entry_date,
+        'Exit Date': t.exit_date,
+        'Entry Price': f"${t.entry_price:.2f}",
+        'Exit Price': f"${t.exit_price:.2f}",
+        'Shares': t.shares,
+        'P&L': f"${t.pnl:.2f}",
+        'Return %': f"{t.return_pct:.2f}%",
+        'Exit Reason': t.exit_reason
+    } for t in result.trades])
+    print("Trade History:")
+    print(trades_df.to_string(index=True))
 
 
 # %% Best Strategy Summary
-best_strategy = max(results.items(), key=lambda x: x[1]['final_capital'])
-print("\n" + "="*80)
-print(f"BEST STRATEGY: {best_strategy[0].upper().replace('_', ' ')}")
-print("="*80)
+# best_strategy = max(results.items(), key=lambda x: x[1]['final_capital'])
+# print("\n" + "="*80)
+# print(f"BEST STRATEGY: {best_strategy[0].upper().replace('_', ' ')}")
+# print("="*80)
 
-trades_df = pd.DataFrame([{
-    'Entry Date': t.entry_date,
-    'Exit Date': t.exit_date,
-    'Entry Price': f"${t.entry_price:.2f}",
-    'Exit Price': f"${t.exit_price:.2f}",
-    'Shares': t.shares,
-    'P&L': f"${t.pnl:.2f}",
-    'Return %': f"{t.return_pct:.2f}%",
-    'Exit Reason': t.exit_reason
-} for t in best_strategy[1]['trades']])
+# trades_df = pd.DataFrame([{
+#     'Entry Date': t.entry_date,
+#     'Exit Date': t.exit_date,
+#     'Entry Price': f"${t.entry_price:.2f}",
+#     'Exit Price': f"${t.exit_price:.2f}",
+#     'Shares': t.shares,
+#     'P&L': f"${t.pnl:.2f}",
+#     'Return %': f"{t.return_pct:.2f}%",
+#     'Exit Reason': t.exit_reason
+# } for t in best_strategy[1]['trades']])
 
-print("\nTrade History:")
-print(trades_df.to_string(index=True))
+# print("\nTrade History:")
+# print(trades_df.to_string(index=True))

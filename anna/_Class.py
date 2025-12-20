@@ -1,6 +1,7 @@
 
 import numpy as np
 
+
 class Trade:
     def __init__(self, entry_date, entry_price, shares, strategy_name):
         self.entry_date = entry_date
@@ -14,11 +15,29 @@ class Trade:
         self.exit_reason = None
         self.exit_reason_code = None
 
+class BacktestResult:
+    def __init__(self, strategy_name, trades, final_capital, equity_curve, df):
+        self.strategy_name = strategy_name
+        self.trades = trades
+        self.final_capital = final_capital
+        self.equity_curve = equity_curve
+        self.df = df
+
+
+class Strategy:
+    TYPE = None
+    def __init__(self, name):
+        self.type = self.TYPE
+        self.name = name
+        self.initial_capital = 0
+        self.stop_loss = None
+        self.take_profit = None
+
 class StrategySummary:
-    def __init__(self, name, initial_capital, result):
-        trades = result['trades']
-        final_capital = result['final_capital']
-        equity_curve = result['equity_curve']
+    def __init__(self, strategy:Strategy, initial_capital, result:BacktestResult):
+        trades = result.trades
+        final_capital = result.final_capital
+        equity_curve = result.equity_curve
 
         win_rate = profit_factor =0.0
         
@@ -36,7 +55,8 @@ class StrategySummary:
         trough = equity_curve['equity'].min()
         drawdown = ((peak - trough) / peak) * 100
 
-        self.name = name
+        self.name = strategy.name
+        self.type = strategy.TYPE
 
         self.trades = trades
         self.equity_curve = equity_curve
