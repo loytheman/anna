@@ -16,12 +16,12 @@ pd.set_option('display.max_columns', None)
 
 # %%
 strategies = {
-    # 'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
+    'hold_1_days': {'hold_days': 1, 'stop_loss': 2.0, 'take_profit': None},
     # 'hold_2_days': {'hold_days': 2, 'stop_loss': None, 'take_profit': None},
     # 'hold_3_days': {'hold_days': 3, 'stop_loss': 2.0, 'take_profit': None},
     # 'hold_5_days': {'hold_days': 5, 'stop_loss': 2.0, 'take_profit': None},
     # 'hold_10_days': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 3},
-    'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
+    # 'stop_loss_2pct': {'hold_days': 10, 'stop_loss': 2.0, 'take_profit': 5.0},
     # 'aggressive': {'hold_days': 1, 'stop_loss': None, 'take_profit': None},
     # 'fade_gap': {'hold_days': 1, 'stop_loss': 3.0, 'take_profit': 2.0, 'fade': True}
 }
@@ -40,7 +40,7 @@ position_size = 1.0
 gap_threshold = 0.35
 
 
-# %%
+# %% load_data
 def load_data(csv_file):
     """Load and prepare OHLC data"""
     df = pd.read_csv(csv_file, parse_dates=True)
@@ -99,18 +99,54 @@ df = load_data(csv_file)
 # df = df.loc[mask].copy()
    
 
-# %%
-def drawEntryExitChart (pts, stgy_name, stgy_params, result={}):
+# %% Class StrategySummary
+class StrategySummary:
+    def __init__(self, name, result):
+        trades = result['trades']
+        final_capital = result['final_capital']
+        equity_curve = result['equity_curve']
+
+        winning_trades = [t for t in trades if t.pnl > 0]
+        losing_trades = [t for t in trades if t.pnl <= 0]
+
+        total_return = ((final_capital - initial_capital) / initial_capital) * 100
+        win_rate = (len(winning_trades) / len(trades)) * 100
+        avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
+        avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
+        profit_factor = abs(avg_win/avg_loss)
+        peak = equity_curve['equity'].max()
+        trough = equity_curve['equity'].min()
+        drawdown = ((peak - trough) / peak) * 100
+
+        self.name = name
+
+        self.trades = trades
+        self.equity_curve = equity_curve
+        self.winning_trades = winning_trades
+        self.losing_trades = losing_trades
+
+        self.final_capital = final_capital
+        self.total_return = total_return
+        self.win_rate = win_rate
+        self.avg_win = avg_win
+        self.avg_loss = avg_loss
+        self.profit_factor = profit_factor
+        self.peak = peak
+        self.trough = trough
+        self.drawdown = drawdown
+
+
+# %% drawEntryExitChart
+def drawEntryExitChart (pts, stgy_name, stgy_params, result, summary):
     trades = result['trades']
-    final_capital = result['final_capital']
     equity_curve = result['equity_curve']
 
 
     has_trade = len(trades) > 0
     pts['trade_num'] = np.nan
-    pts['pnl'] = 0.0
     pts['entry_price'] = np.nan
-    # pts['exit_price'] = 0.0
+    pts['exit_price'] = np.nan
+    pts['pnl'] = 0.0
     pts['total_pnl'] = 0.0
     pts['total_pnl_above'] = np.nan
     pts['total_pnl_below'] = np.nan
@@ -169,8 +205,8 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, result={}):
         
     ]
 
-
-    summary = subtitle1 = subtitle2 = subtitle3 = subtitle4 = subtitle5 = ""
+    s = summary
+    info = subtitle1 = subtitle2 = subtitle3 = subtitle4 = subtitle5 = ""
     subtitle5 += f"Inital Capital: ${initial_capital:,.2f}\n"
     subtitle5 += f"Position Size: {position_size}%\n"
     subtitle5 += f"Gap Threshold: {gap_threshold}%\n"
@@ -183,40 +219,33 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, result={}):
             mpf.make_addplot(pts['exit_price'], type='scatter',  marker='v', markersize=20, color='purple'),
         ])
 
-        winning_trades = [t for t in trades if t.pnl > 0]
-        losing_trades = [t for t in trades if t.pnl <= 0]
-
-        total_return = ((final_capital - initial_capital) / initial_capital) * 100
-        win_rate = (len(winning_trades) / len(trades)) * 100
-        avg_win = np.mean([t.pnl for t in winning_trades]) if winning_trades else 0
-        avg_loss = np.mean([t.pnl for t in losing_trades]) if losing_trades else 0
         
-        summary += f"Total Return: {total_return:.2f}%"
+        info += f"Total Return: {s.total_return:.2f}%"
         subtitle3 += f"Total Trades: {len(trades)}\n"
-        subtitle3 += f"Winning Trades: {len(winning_trades)}\n"
-        subtitle3 += f"Losing Trades: {len(losing_trades)}\n"
-        subtitle2 += f"Avg Win: ${avg_win:.2f}\n"
-        subtitle2 += f"Avg Loss: ${avg_loss:.2f}\n"
-        if avg_loss != 0:
-            subtitle2 += f"Profit Factor: {abs(avg_win/avg_loss):.2f}\n"
-        subtitle1 += f"Total Return: {total_return:.2f}%\n"
-        subtitle1 += f"Win Rate: {win_rate:.2f}%\n"
-        subtitle1 += f"Final Capital: ${final_capital:,.2f}\n"
+        subtitle3 += f"Winning Trades: {len(s.winning_trades)}\n"
+        subtitle3 += f"Losing Trades: {len(s.losing_trades)}\n"
+        subtitle2 += f"Avg Win: ${s.avg_win:.2f}\n"
+        subtitle2 += f"Avg Loss: ${s.avg_loss:.2f}\n"
+        if s.avg_loss != 0:
+            subtitle2 += f"Profit Factor: {s.profit_factor:.2f}\n"
+        subtitle1 += f"Total Return: {s.total_return:.2f}%\n"
+        subtitle1 += f"Win Rate: {s.win_rate:.2f}%\n"
+        subtitle1 += f"Final Capital: ${s.final_capital:,.2f}\n"
         
     else:
-        summary += f"No trades executed\n"
+        info += f"No trades executed\n"
 
 
     price_max = df['high'].max() + 50
     price_min = df['low'].min() - 50
-    s = mpf.make_mpf_style(base_mpf_style='yahoo', edgecolor='#000000',rc={'axes.linewidth':0.5})
+    style = mpf.make_mpf_style(base_mpf_style='yahoo', edgecolor='#000000',rc={'axes.linewidth':0.5})
     date_range = "\n" + df.iloc[0, 0].strftime("%d %b %Y") + '  -  ' + df.iloc[-1, 0].strftime("%d %b %Y")
-    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style=s, datetime_format='%d/%m', ylim=(price_min, price_max), 
+    fig, axlist = mpf.plot(pts, addplot=apd, type='ohlc', figsize=(14, 8), style=style, datetime_format='%d/%m', ylim=(price_min, price_max), 
         xlabel=date_range, volume=True, tight_layout=True, returnfig=True)
 
 
     fig.text(0.1,1.1, f'{stgy_name.upper().replace('_', ' ')}', ha='left', va='top', fontsize=20)
-    fig.text(0.1,1.05, summary, ha='left', va='top', fontsize=12, color='g' if total_return >= 0 else 'r')
+    fig.text(0.1,1.05, info, ha='left', va='top', fontsize=12, color='g' if s.total_return >= 0 else 'r')
     
     fig.text(0.52,1.1, subtitle5, ha='right', va='top', fontsize=10)
     fig.text(0.63,1.1, subtitle4, ha='right', va='top', fontsize=10)
@@ -246,7 +275,7 @@ def drawEntryExitChart (pts, stgy_name, stgy_params, result={}):
 # pts = df.copy()
 # drawEntryExitChart(df.copy(), "test")
 
-# %%
+# %% Class Trade
 class Trade:
     def __init__(self, entry_date, entry_price, shares, strategy_name):
         self.entry_date = entry_date
@@ -260,8 +289,8 @@ class Trade:
         self.exit_reason = None
         self.exit_reason_code = None
 
-#%% """Backtest a single strategy"""
-def backtest_strategy(df, strategy_params, initial_capital, position_size, strategy_name):  
+#%% backtest_gap_up_strategy
+def backtest_gap_up_strategy(df, strategy_params, initial_capital, position_size, strategy_name):  
     capital = initial_capital
     trades = []
     active_trade = None
@@ -374,7 +403,7 @@ def backtest_strategy(df, strategy_params, initial_capital, position_size, strat
         'final_capital': capital,
         'equity_curve': equity_curve,
      }
-#%%
+#%% backtest_rsi_strategy
 def backtest_rsi_strategy(df, initial_capital, position_size):
     """
     Backtest RSI strategy:
@@ -441,18 +470,23 @@ def backtest_rsi_strategy(df, initial_capital, position_size):
     return df, trades
 
 
-#%%  BACKTESTING ALL STRATEGIES
+#%% BACKTESTING ALL STRATEGIES
 print("\n" + "="*80)
 print("BACKTESTING ALL STRATEGIES")
 print("="*80)
 
 results = {}
 for strategy_name, params in strategies.items():
-    result = backtest_strategy(df, params, initial_capital, position_size, strategy_name)
+    result = backtest_gap_up_strategy(df, params, initial_capital, position_size, strategy_name)
     results[strategy_name] = result
-    drawEntryExitChart(df, strategy_name, params, result)
+    summary = StrategySummary(strategy_name, result)
+    drawEntryExitChart(df, strategy_name, params, result, summary)
 
-# %%
+    print(f"STRATEGY: {strategy_name.upper().replace('_', ' ')}")
+
+
+
+# %% Best Strategy Summary
 best_strategy = max(results.items(), key=lambda x: x[1]['final_capital'])
 print("\n" + "="*80)
 print(f"BEST STRATEGY: {best_strategy[0].upper().replace('_', ' ')}")
